@@ -1,4 +1,3 @@
-import SessionState as SessionState
 import streamlit as st
 import cv2
 import numpy as np
@@ -6,26 +5,10 @@ from PIL import Image
 from io import BytesIO
 import base64
 
-#---------------------------------------------------------------------------------------
-# The SessionState class allows us to initialize and save variables across for across
-# session states. This is a valuable feature that enables us to take different actions
-# depending on the state of selected variables in the code. If this is not done then
-# all variables are reset any time the application state changes (e.g., when a user
-# interacts with a widget). For example, the confidence threshold of the slider has
-# changed, but we are still working with the same image, we can detect that by
-# comparing the current file_uploaded_id (img_file_buffer.id) with the
-# previous value (ss.file_uploaded_id) and if they are the same then we know we
-# don't need to call the face detection model again. We just simply need to process
-# the previous set of detections.
-#---------------------------------------------------------------------------------------
-USE_SS = True
-if USE_SS:
-    ss = SessionState.get(file_uploaded_id=-1, # Initialize file uploaded index.
-                          detections=None)     # Initialize detections.
-
 # Create application title and file uploader widget.
 st.title("OpenCV Deep Learning based Face Detection")
 img_file_buffer = st.file_uploader("Choose a file", type=['jpg', 'jpeg', 'png'])
+
 
 # Function for detecting facses in an image.
 def detectFaceOpenCVDnn(net, frame):
@@ -36,6 +19,7 @@ def detectFaceOpenCVDnn(net, frame):
     # Get Detections.
     detections = net.forward()
     return detections
+
 
 # Function for annotating the image with bounding boxes for each detected face.
 def process_detections(frame, detections, conf_threshold=0.5):
@@ -55,6 +39,7 @@ def process_detections(frame, detections, conf_threshold=0.5):
             # Draw bounding boxes around detected faces.
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), bb_line_thickness, cv2.LINE_8)
     return frame, bboxes
+
 
 # Function to load the DNN model.
 @st.cache(allow_output_mutation=True)
@@ -94,19 +79,11 @@ if img_file_buffer is not None:
     # Create a Slider and get the threshold from the slider.
     conf_threshold = st.slider("SET Confidence Threshold", min_value=0.0, max_value=1.0, step=.01, value=0.5)
 
-    if USE_SS:
-        # Check if the loaded image is "new", if so call the face detection model function.
-        if img_file_buffer.id != ss.file_uploaded_id:
-            # Set the file_uploaded_id equal to the ID of the file that was just uploaded.
-            ss.file_uploaded_id = img_file_buffer.id
-            # Save the detections in the session-state data structure (ss) for future use
-            # with the current loaded image.
-            ss.detections = detectFaceOpenCVDnn(net, image)
-        # Process the detections based on the current confidence threshold.
-        out_image, _ = process_detections(image, ss.detections, conf_threshold=conf_threshold)
-    else:
-        detections = detectFaceOpenCVDnn(net, image)
-        out_image, _ = process_detections(image, detections, conf_threshold=conf_threshold)
+    # Call the face detection model to detect faces in the image.
+    detections = detectFaceOpenCVDnn(net, image)
+
+    # Process the detections based on the current confidence threshold.
+    out_image, _ = process_detections(image, detections, conf_threshold=conf_threshold)
 
     # Display Detected faces.
     placeholders[1].image(out_image, channels='BGR')
@@ -117,4 +94,3 @@ if img_file_buffer is not None:
     # Create a link for downloading the output file.
     st.markdown(get_image_download_link(out_image, "face_output.jpg", 'Download Output Image'),
                 unsafe_allow_html=True)
-    
